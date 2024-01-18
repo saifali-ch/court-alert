@@ -30,6 +30,9 @@ sender_email = os.getenv("SENDER_EMAIL")
 sender_password = os.getenv("SENDER_PASSWORD")
 recipient_email = os.getenv("RECIPIENT_EMAIL")
 
+# Global variables
+new_url = ''
+
 
 def send_email(subject, body):
     # Create a MIMEText object to represent the email body
@@ -56,6 +59,7 @@ def get_cached_html():
 
 
 def get_html(url):
+    global new_url
     html = ''
     try:
         driver.get(url)
@@ -66,6 +70,9 @@ def get_html(url):
 
         # Get the HTML content after JavaScript execution
         html = driver.page_source
+
+        # Get the current URL
+        new_url = driver.current_url
 
         # Save HTML content to a file
         with open('output.html', 'w', encoding='utf-8') as file:
@@ -145,4 +152,7 @@ if __name__ == '__main__':
     else:
         html = get_cached_html()
 
-    scrape(html, criteria)
+    if url == new_url:
+        scrape(html, criteria)
+    else:
+        print('No slots available. The page has been redirected.')
