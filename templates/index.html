@@ -11,165 +11,167 @@
     />
     <title>Court Alert</title>
     <style>
-        .heading-1 {
-            font-size: 36px;
-            text-align: center;
-            background: lightblue;
-            border-radius: 10px;
-            padding: 10px;
-        }
-
-        .heading-2 {
+        h2 {
             font-size: 28px;
             text-align: center;
             background: lightblue;
             border-radius: 10px;
             padding: 10px;
         }
-
-        .criteria-form {
-            padding: 20px;
-        }
-
     </style>
 </head>
 <body>
 <!-- Add an alert element at the top of your page -->
-<div id="ajaxAlert" class="alert alert-dismissible fade show position-fixed top-0 end-0 mt-4 me-4" role="alert" style="width: 350px; display: none;">
-  <strong id="alertMessage"></strong>
-  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="alert alert-dismissible fade show position-fixed bottom-0 end-0 mt-4 me-4" id="ajaxAlert" role="alert"
+     style="width: 350px; display: none;">
+    <strong id="alertMessage"></strong>
+    <button aria-label="Close" class="btn-close" data-bs-dismiss="alert" type="button"></button>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <!-- Map categories to bootstrap alert styles or define your own styles -->
-      {% set alert_class = {
-        'info': 'alert-info',
-        'success': 'alert-success',
-        'danger': 'alert-danger',
-        'warning': 'alert-warning',
-        'error': 'alert-danger',
-      }.get(category, 'alert-primary') %}
+{% if messages %}
+{% for category, message in messages %}
+<!-- Map categories to bootstrap alert styles or define your own styles -->
+{% set alert_class = {
+'info': 'alert-info',
+'success': 'alert-success',
+'danger': 'alert-danger',
+'warning': 'alert-warning',
+'error': 'alert-danger',
+}.get(category, 'alert-primary') %}
 
-      <!-- Add an alert element at the bottom-right corner with a small right margin -->
-      <div id="serverAlert" class="alert alert-dismissible fade show position-fixed top-0 end-0 mt-4 me-4 {{ alert_class }}" role="alert" style="width: 350px;">
-        <strong>{{ message }}</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
-    {% endfor %}
-  {% endif %}
+<!-- Add an alert element at the bottom-right corner with a small right margin -->
+<div class="alert alert-dismissible fade show position-fixed bottom-0 end-0 mt-4 me-4 {{ alert_class }}" id="serverAlert"
+     role="alert" style="width: 350px;">
+    <strong>{{ message }}</strong>
+    <button aria-label="Close" class="btn-close" data-bs-dismiss="alert" type="button"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 
+<div class="container-fluid p-4">
+    <div class="row">
+        <div class="col-xl-4 mb-5 mx-xl-0">
+            <div class="card-header">
+                <h2 class="heading-1">Manage Alert Criteria</h2>
+            </div>
+            <div class="card">
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <input class="form-control" id="criteria_id" name="criteria_id" required type="hidden"/>
+                        <div class="mb-3">
+                            <label class="form-label" for="date">Date</label>
+                            <input class="form-control" id="date" name="date" required type="date"/>
+                        </div>
 
+                        <div class="mb-3">
+                            <label class="form-label" for="start_time">Start Time</label>
+                            <input class="form-control" id="start_time" name="start_time" required type="time"/>
+                        </div>
 
-<div class="container p-4 col-6">
-    <h1 class="heading-1">Court Alert Criteria</h1>
-    <form class="criteria-form" method="POST">
-        <input class="form-control" id="criteria_id" name="criteria_id" required type="hidden"/>
-        <div class="mb-3">
-            <label class="form-label" for="date">Date</label>
-            <input class="form-control" id="date" name="date" required type="date"/>
+                        <div class="mb-3">
+                            <label class="form-label" for="end_time">End Time</label>
+                            <input class="form-control" id="end_time" name="end_time" required type="time"/>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="duration">Duration (in minutes)</label>
+                            <select class="form-select" id="duration" name="duration" required>
+                                <option></option>
+                                <option value="30">30</option>
+                                <option value="60">60</option>
+                                <option value="90">90</option>
+                                <option value="120">120</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" id="active" name="active" type="checkbox" value="1">
+                            <label class="form-check-label" for="active">Active</label>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-success" formaction="{{ url_for('add_criteria') }}" type="submit">
+                                Add
+                            </button>
+                            <button class="btn btn-primary" formaction="{{ url_for('update_criteria') }}" type="submit">
+                                Update
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="start_time">Start Time</label>
-            <input class="form-control" id="start_time" name="start_time" required type="time"/>
+        <div class="col-xl">
+            <h2>Current Criteria</h2>
+            <div class="overflow-x-scroll">
+                <table class="table table-success table-striped">
+                    <thead>
+                    <tr>
+                        <th class="text-center" scope="col">Active</th>
+                        <th scope="col">#</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Start Time</th>
+                        <th scope="col">End Time</th>
+                        <th class="text-center" scope="col">Duration</th>
+                        <th class="text-center" scope="col">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for c in criteria %}
+                    <tr>
+                        <td>
+                            <div class="d-flex justify-content-center">
+                                <div class="form-check">
+                                    <input aria-label="Active" class="form-check-input"
+                                           onchange="toggleCriteria('{{ c[0] }}', this.checked)"
+                                           type="checkbox"
+                                           {{ 'checked' if c[5] == 1 else '' }}
+                                    >
+                                </div>
+                            </div>
+                        </td>
+                        <th>{{ loop.index }}</th>
+                        <td>{{ c[1].strftime('%Y-%m-%d') }}</td>
+                        <td>{{ c[2].strftime('%I:%M %p') }}</td>
+                        <td>{{ c[3].strftime('%I:%M %p') }}</td>
+                        <td class="text-center">{{ c[4] }}</td>
+                        <td class="text-center">
+                            <a onclick="updateFormFields('{{ c[0] }}', this, '{{ c[5] }}')"
+                               style="cursor: pointer">
+                                <svg fill="#0B5ED7" height="20px" viewBox="0 0 32 32" width="20px"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <title>Update</title>
+                                    <path d="M0 32l12-4 20-20-8-8-20 20zM4 28l2.016-5.984 4 4zM8 20l12-12 4 4-12 12z"></path>
+                                </svg>
+                            </a>
+                            <a onclick="confirmDelete('{{ c[0] }}')" style="cursor: pointer">
+                                <svg fill="none" height="20px" viewBox="0 0 24 24" width="20px"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <title>Delete</title>
+                                    <path d="M10 11V17" stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                    <path d="M14 11V17" stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                    <path d="M4 7H20" stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                    <path d="M6 7H12H18V18C18 19.6569 16.6569 21 15 21H9C7.34315 21 6 19.6569 6 18V7Z"
+                                          stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                    <path d="M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7H9V5Z"
+                                          stroke="#E55A54"
+                                          stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                                </svg>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="end_time">End Time</label>
-            <input class="form-control" id="end_time" name="end_time" required type="time"/>
-        </div>
-
-        <div class="mb-3">
-            <label for="duration">Duration (in minutes)</label>
-            <select class="form-select" id="duration" name="duration" required>
-                <option></option>
-                <option value="30">30</option>
-                <option value="60">60</option>
-                <option value="90">90</option>
-                <option value="120">120</option>
-            </select>
-        </div>
-
-        <div class="form-check mb-4">
-            <input class="form-check-input" id="active" name="active" type="checkbox" value="1">
-            <label class="form-check-label" for="active">Active</label>
-        </div>
-
-        <div class="d-flex justify-content-end gap-5">
-            <button class="btn btn-success" formaction="{{ url_for('add_criteria') }}" type="submit">
-                Add Criteria
-            </button>
-            <button class="btn btn-primary" formaction="{{ url_for('update_criteria') }}" type="submit">
-                Update Criteria
-            </button>
-        </div>
-    </form>
-    <br/>
-    <div>
-        <h2 class="heading-2">Current Criteria</h2>
-        <table class="table table-success table-striped">
-            <thead>
-            <tr>
-                <th class="text-center" scope="col">Active</th>
-                <th scope="col">#</th>
-                <th scope="col">Date</th>
-                <th scope="col">Start Time</th>
-                <th scope="col">End Time</th>
-                <th class="text-center" scope="col">Duration</th>
-                <th class="text-center" scope="col">Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for c in criteria %}
-            <tr>
-                <td class="d-flex justify-content-center">
-                    <div class="form-check">
-                        <input aria-label="Active" class="form-check-input"
-                               onchange="toggleCriteria('{{ c[0] }}', this.checked)"
-                               type="checkbox"
-                               {{ 'checked' if c[5] == 1 else '' }}
-                        >
-                    </div>
-                </td>
-                <th>{{ loop.index }}</th>
-                <td>{{ c[1].strftime('%Y-%m-%d') }}</td>
-                <td>{{ c[2].strftime('%I:%M %p') }}</td>
-                <td>{{ c[3].strftime('%I:%M %p') }}</td>
-                <td class="text-center">{{ c[4] }}</td>
-                <td class="text-center">
-                    <a onclick="updateFormFields('{{ c[0] }}', this, '{{ c[5] }}')"
-                       style="cursor: pointer">
-                        <svg fill="#0B5ED7" height="20px" viewBox="0 0 32 32" width="20px"
-                             xmlns="http://www.w3.org/2000/svg">
-                            <title>Update</title>
-                            <path d="M0 32l12-4 20-20-8-8-20 20zM4 28l2.016-5.984 4 4zM8 20l12-12 4 4-12 12z"></path>
-                        </svg>
-                    </a>
-                    <a onclick="confirmDelete('{{ c[0] }}')" style="cursor: pointer">
-                        <svg fill="none" height="20px" viewBox="0 0 24 24" width="20px"
-                             xmlns="http://www.w3.org/2000/svg">
-                            <title>Delete</title>
-                            <path d="M10 11V17" stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
-                                  stroke-width="2"/>
-                            <path d="M14 11V17" stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
-                                  stroke-width="2"/>
-                            <path d="M4 7H20" stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round"
-                                  stroke-width="2"/>
-                            <path d="M6 7H12H18V18C18 19.6569 16.6569 21 15 21H9C7.34315 21 6 19.6569 6 18V7Z"
-                                  stroke="#E55A54" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                            <path d="M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7H9V5Z" stroke="#E55A54"
-                                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-                        </svg>
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
     </div>
 </div>
 
