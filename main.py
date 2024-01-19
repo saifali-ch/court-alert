@@ -10,9 +10,8 @@ from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.common import WebDriverException
 
-from db import get_criteria_from_db, add_alert_to_db, alert_exists
+from db import get_criteria, add_alert, alert_exists
 
 load_dotenv()  # Load variables from the .env file
 
@@ -24,14 +23,12 @@ options.add_argument("--no-sandbox")
 driver = webdriver.Chrome(options=options)
 
 # Get environment variables
+__DEV__ = os.getenv("APP_ENV") == 'local'
 host = os.getenv("HOST")
 port = int(os.getenv("PORT"))
 sender_email = os.getenv("SENDER_EMAIL")
 sender_password = os.getenv("SENDER_PASSWORD")
 recipient_email = os.getenv("RECIPIENT_EMAIL")
-
-# Global variables
-new_url = ''
 
 
 def send_email(subject, body):
@@ -42,45 +39,49 @@ def send_email(subject, body):
     message['Subject'] = subject
     message.attach(MIMEText(body, 'plain'))
 
-    # Connect to the SMTP server
-    with smtplib.SMTP(host, port) as server:
-        server.starttls()
-        server.login(sender_email, sender_password)
+    if __DEV__:  # Use MailHog for local environment
+        with smtplib.SMTP('localhost', 1025) as server:
+            server.sendmail(sender_email, recipient_email, message.as_string())
+    else:
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipient_email, message.as_string())
 
-        # Send the email
-        server.sendmail(sender_email, recipient_email, message.as_string())
-    print('done')
+
+def get_filename_from_url(url):
+    filename = url.replace('https://', '').replace('http://', '').replace('/', '_').replace(':', '_') + '.html'
+    return filename
 
 
-def get_cached_html():
-    with open('output.html', 'r', encoding='utf-8') as file:
+def get_cached_html(url):
+    global new_url
+    new_url = url
+
+    filename = get_filename_from_url(url)
+    file_path = os.path.join('cache', filename)
+    with open(file_path, 'r', encoding='utf-8') as file:
         html = file.read()
     return html
 
 
 def get_html(url):
     global new_url
-    html = ''
-    try:
-        driver.get(url)
+    driver.get(url)
 
-        # Allow time for JavaScript to execute (adjust sleep time if needed)
-        print('Executing javascript...')
-        time.sleep(5)
+    # Allow time for JavaScript to execute (adjust sleep time if needed)
+    print('Executing javascript...')
+    time.sleep(7)
+    html = driver.page_source
+    new_url = driver.current_url
 
-        # Get the HTML content after JavaScript execution
-        html = driver.page_source
+    if not os.path.exists('cache'):
+        os.makedirs('cache')
 
-        # Get the current URL
-        new_url = driver.current_url
-
-        # Save HTML content to a file
-        with open('output.html', 'w', encoding='utf-8') as file:
-            file.write(html)
-    except WebDriverException as e:
-        print(e)
-    finally:
-        driver.quit()
+    filename = get_filename_from_url(url)
+    file_path = os.path.join('cache', filename)
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.write(html)
 
     return html
 
@@ -90,6 +91,10 @@ def scrape(html, criteria):
     soup = BeautifulSoup(html, 'html.parser')
     timeslots = soup.find_all('a', class_='timeslot')
 
+    if not timeslots:
+        print('No timeslots detected.')
+        return
+
     subject = ''
     body = ''
     for timeslot in timeslots:
@@ -98,18 +103,16 @@ def scrape(html, criteria):
         # Convert timeslot time string to datetime object
         timeslot_time = datetime.strptime(timeslot_time_str, '%I:%M %p')
 
-        # Check if timeslot time is within the specified range
+        # Check if timeslot time is within the specified range for the current criteria
         if criteria[2] <= timeslot_time <= criteria[3]:
             timeslot_resource = timeslot.find('div', class_='timeslot-resource').get_text()
 
-            # Check if an alert has already been sent for this slot
-            date = criteria[1]
-            duration = criteria[4]
-            if alert_exists(date, timeslot_time, timeslot_resource, duration):
-                print('Alert already sent for this slot. Skipping email.')
+            # Check if an alert has already been sent for this slot and criteria
+            if alert_exists(timeslot_time, timeslot_resource, criteria_id=criteria[0]):
+                print('Alert already sent for this slot and criteria. Skipping email.')
                 continue
             else:
-                add_alert_to_db(date, timeslot_time, timeslot_resource, duration)
+                add_alert(timeslot_time, timeslot_resource, criteria_id=criteria[0])
 
             # Update the email subject
             date_str = criteria[1].strftime('%m/%d')
@@ -126,33 +129,36 @@ def scrape(html, criteria):
         send_email(subject, body)
 
 
+# Global variables
+new_url = ''
+base_url = os.getenv("URL")
+
 if __name__ == '__main__':
-    url = os.getenv("URL")
-    criteria = get_criteria_from_db()[0]
-    date = criteria[1]
-    start_time = criteria[2]
-    end_time = criteria[3]
-    duration = criteria[4]
-
-    # Update the URL with the criteria
-    url += f'&date={date.strftime("%Y-%m-%d")}'
-    url += f'&duration={duration}'
-
-    # Print the criteria
-    print(f'Date: {date}')
-    print(f'Start Time: {start_time.strftime("%I:%M %p")}')
-    print(f'End Time: {end_time.strftime("%I:%M %p")}')
-    print(f'Duration: {duration}')
-    print(f'URL: {url}')
-    print('.' * 50)
-
     app_env = os.getenv("APP_ENV")
-    if app_env == 'production':
-        html = get_html(url)
-    else:
-        html = get_cached_html()
 
-    if url == new_url:
-        scrape(html, criteria)
-    else:
-        print('No slots available. The page has been redirected.')
+    criteria_list = get_criteria(active=True)
+
+    for criteria in criteria_list:
+        url = f"{base_url}&date={criteria[1].strftime('%Y-%m-%d')}&duration={criteria[4]}"
+
+        # Print the criteria for the current entry
+        print(f'URL: {url}')
+        print(f'Start Time: {criteria[2].strftime("%I:%M %p")}')
+        print(f'End Time: {criteria[3].strftime("%I:%M %p")}')
+
+        if __DEV__:
+            html = get_cached_html(url)
+        else:
+            try:
+                html = get_html(url)
+            except Exception as e:
+                print(e)
+                continue
+
+        if url == new_url:
+            scrape(html, criteria)
+        else:
+            print('No slots available. The page has been redirected.')
+        print('.' * 100)
+    driver.quit()
+    print('Processing complete.')
