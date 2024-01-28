@@ -40,9 +40,9 @@ def get_criteria(active=False):
     cursor = conn.cursor()
 
     if active:
-        cursor.execute('SELECT * FROM criteria WHERE active = 1')
+        cursor.execute('SELECT * FROM criteria WHERE active = 1 and date >= date("now")')
     else:
-        cursor.execute('SELECT * FROM criteria')
+        cursor.execute('SELECT * FROM criteria WHERE date >= date("now")')
 
     criteria = cursor.fetchall()
 
